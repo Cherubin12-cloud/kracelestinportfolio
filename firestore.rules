@@ -1,0 +1,265 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Pillar 0: Global default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Reusable Hardened Primitives ---
+    function isValidId(id) {
+      return id is string && id.size() >= 2 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedEmail() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isVerifiedEmail() && (
+        request.auth.token.email == 'kracelestin31@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    // --- Validation Blueprints (Anti-Update-Gap) ---
+    function isValidMediaAsset(data, slotId) {
+      return data.keys().hasAll([
+        'slotId',
+        'dataUrl',
+        'caption',
+        'isPublic',
+        'updatedBy',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'slotId',
+        'dataUrl',
+        'caption',
+        'isPublic',
+        'updatedBy',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.slotId is string &&
+      data.slotId == slotId &&
+      data.slotId.size() >= 2 &&
+      data.slotId.size() <= 80 &&
+      data.slotId.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.dataUrl is string &&
+      data.dataUrl.size() >= 10 &&
+      data.dataUrl.size() <= 800000 &&
+      (data.dataUrl.matches('^https://.*') || data.dataUrl.matches('^data:image/(jpeg|jpg|png|webp|gif);base64,.*')) &&
+      data.caption is string &&
+      data.caption.size() <= 300 &&
+      data.isPublic is bool &&
+      data.isPublic == true &&
+      data.updatedBy is string &&
+      data.updatedBy.size() >= 1 &&
+      data.updatedBy.size() <= 128 &&
+      data.updatedBy == request.auth.uid &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidSiteContact(data) {
+      return data.keys().hasAll([
+        'email',
+        'linkedin',
+        'isPublic',
+        'updatedBy',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'email',
+        'linkedin',
+        'isPublic',
+        'updatedBy',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.email is string &&
+      data.email.size() >= 1 &&
+      data.email.size() <= 160 &&
+      data.linkedin is string &&
+      data.linkedin.size() >= 1 &&
+      data.linkedin.size() <= 300 &&
+      data.isPublic is bool &&
+      data.isPublic == true &&
+      data.updatedBy is string &&
+      data.updatedBy.size() >= 1 &&
+      data.updatedBy.size() <= 128 &&
+      data.updatedBy == request.auth.uid &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidSessionOverride(data, sessionId) {
+      return data.keys().hasAll([
+        'sessionId',
+        'title',
+        'topic',
+        'category',
+        'date',
+        'role',
+        'linkedinUrl',
+        'isPublic',
+        'updatedBy',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'sessionId',
+        'title',
+        'topic',
+        'category',
+        'date',
+        'role',
+        'linkedinUrl',
+        'isPublic',
+        'updatedBy',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.sessionId is string &&
+      data.sessionId == sessionId &&
+      data.sessionId.size() >= 2 &&
+      data.sessionId.size() <= 80 &&
+      data.sessionId.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.title is string &&
+      data.title.size() >= 1 &&
+      data.title.size() <= 180 &&
+      data.topic is string &&
+      data.topic.size() >= 1 &&
+      data.topic.size() <= 320 &&
+      data.category is string &&
+      data.category in [
+        'AI & Technology',
+        'Digital Skills',
+        'Education',
+        'Leadership & Youth Development',
+        'Professional Development'
+      ] &&
+      data.date is string &&
+      data.date.size() >= 1 &&
+      data.date.size() <= 80 &&
+      data.role is string &&
+      data.role in ['Host', 'Facilitator', 'Speaker'] &&
+      data.linkedinUrl is string &&
+      data.linkedinUrl.size() >= 1 &&
+      data.linkedinUrl.size() <= 500 &&
+      data.isPublic is bool &&
+      data.isPublic == true &&
+      data.updatedBy is string &&
+      data.updatedBy.size() >= 1 &&
+      data.updatedBy.size() <= 128 &&
+      data.updatedBy == request.auth.uid &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    // --- Collection: /mediaAssets/{slotId} ---
+    match /mediaAssets/{slotId} {
+      allow get: if isValidId(slotId) && (resource == null || existing().isPublic == true);
+      allow list: if existing().isPublic == true;
+
+      allow create: if isSignedIn() &&
+        isValidId(slotId) &&
+        isValidMediaAsset(incoming(), slotId) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        isAdmin();
+
+      allow update: if isSignedIn() &&
+        isValidId(slotId) &&
+        isValidMediaAsset(incoming(), slotId) &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().slotId == existing().slotId &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['dataUrl', 'caption', 'updatedBy', 'updatedAt']) &&
+        isAdmin();
+
+      allow delete: if isSignedIn() && isValidId(slotId) && isAdmin();
+    }
+
+    // --- Collection: /siteSettings/{settingId} ---
+    match /siteSettings/{settingId} {
+      allow get: if isValidId(settingId) && settingId == 'contact' && (resource == null || existing().isPublic == true);
+      allow list: if false;
+
+      allow create: if isSignedIn() &&
+        isValidId(settingId) &&
+        settingId == 'contact' &&
+        isValidSiteContact(incoming()) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        isAdmin();
+
+      allow update: if isSignedIn() &&
+        isValidId(settingId) &&
+        settingId == 'contact' &&
+        isValidSiteContact(incoming()) &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['email', 'linkedin', 'updatedBy', 'updatedAt']) &&
+        isAdmin();
+
+      allow delete: if isSignedIn() && isValidId(settingId) && settingId == 'contact' && isAdmin();
+    }
+
+    // --- Collection: /sessions/{sessionId} ---
+    match /sessions/{sessionId} {
+      allow get: if isValidId(sessionId) && (resource == null || existing().isPublic == true);
+      allow list: if existing().isPublic == true;
+
+      allow create: if isSignedIn() &&
+        isValidId(sessionId) &&
+        isValidSessionOverride(incoming(), sessionId) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        isAdmin();
+
+      allow update: if isSignedIn() &&
+        isValidId(sessionId) &&
+        isValidSessionOverride(incoming(), sessionId) &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().sessionId == existing().sessionId &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'title',
+          'topic',
+          'category',
+          'date',
+          'role',
+          'linkedinUrl',
+          'updatedBy',
+          'updatedAt'
+        ]) &&
+        isAdmin();
+
+      allow delete: if isSignedIn() && isValidId(sessionId) && isAdmin();
+    }
+
+    // --- Collection: /admins/{uid} ---
+    match /admins/{uid} {
+      allow get: if isSignedIn() && isValidId(uid) && request.auth.uid == uid;
+      allow list: if false;
+      allow create, update, delete: if false;
+    }
+  }
+}

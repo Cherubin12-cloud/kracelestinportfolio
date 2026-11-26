@@ -1,0 +1,239 @@
+{
+  "entities": {
+    "MediaAssetRecord": {
+      "title": "MediaAssetRecord",
+      "description": "A permanently saved photograph or visual asset mapped to a specific portfolio image slot.",
+      "type": "object",
+      "properties": {
+        "slotId": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 80,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Matches the portfolio image slot identifier."
+        },
+        "dataUrl": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 800000,
+          "description": "Compressed image data URL (data:image/...) or verified HTTPS image URL."
+        },
+        "caption": {
+          "type": "string",
+          "maxLength": 300,
+          "description": "Display caption associated with the uploaded image."
+        },
+        "isPublic": {
+          "type": "boolean",
+          "description": "Controls public portfolio visibility (must be true for published portfolio photos)."
+        },
+        "updatedBy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "UID of the verified admin who saved the asset."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the asset record was first created."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the asset record was last updated."
+        }
+      },
+      "required": [
+        "slotId",
+        "dataUrl",
+        "caption",
+        "isPublic",
+        "updatedBy",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "SiteContactSettings": {
+      "title": "SiteContactSettings",
+      "description": "Public contact configuration managed by the portfolio owner.",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160,
+          "description": "Public portfolio email address or placeholder."
+        },
+        "linkedin": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300,
+          "description": "Public LinkedIn profile URL or placeholder."
+        },
+        "isPublic": {
+          "type": "boolean",
+          "description": "Explicitly marks public portfolio contact settings."
+        },
+        "updatedBy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "UID of the verified admin who updated the settings."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of creation."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of latest update."
+        }
+      },
+      "required": [
+        "email",
+        "linkedin",
+        "isPublic",
+        "updatedBy",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "SessionOverride": {
+      "title": "SessionOverride",
+      "description": "Editable LinkedIn knowledge-sharing session metadata saved permanently by the portfolio admin.",
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 80,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Identifier matching the session card."
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 180,
+          "description": "Authentic session title."
+        },
+        "topic": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 320,
+          "description": "Session topic or theme."
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "AI & Technology",
+            "Digital Skills",
+            "Education",
+            "Leadership & Youth Development",
+            "Professional Development"
+          ],
+          "description": "Session category."
+        },
+        "date": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "Authentic session date."
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "Host",
+            "Facilitator",
+            "Speaker"
+          ],
+          "description": "Role held in the session."
+        },
+        "linkedinUrl": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500,
+          "description": "LinkedIn post or replay URL."
+        },
+        "isPublic": {
+          "type": "boolean",
+          "description": "Controls public visibility of the session."
+        },
+        "updatedBy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "UID of the verified admin who saved the session."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of creation."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of latest update."
+        }
+      },
+      "required": [
+        "sessionId",
+        "title",
+        "topic",
+        "category",
+        "date",
+        "role",
+        "linkedinUrl",
+        "isPublic",
+        "updatedBy",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "AdminRegistryEntry": {
+      "title": "AdminRegistryEntry",
+      "description": "Server-managed registry of authorized admin UIDs.",
+      "type": "object",
+      "properties": {
+        "role": {
+          "type": "string",
+          "enum": [
+            "admin"
+          ],
+          "description": "Administrative privilege marker."
+        }
+      },
+      "required": [
+        "role"
+      ]
+    }
+  },
+  "firestore": {
+    "/mediaAssets/{slotId}": {
+      "schema": {
+        "$ref": "#/entities/MediaAssetRecord"
+      },
+      "description": "Stores permanently uploaded portfolio photos keyed by their slot identifier."
+    },
+    "/siteSettings/{settingId}": {
+      "schema": {
+        "$ref": "#/entities/SiteContactSettings"
+      },
+      "description": "Stores public contact configuration (document ID 'contact')."
+    },
+    "/sessions/{sessionId}": {
+      "schema": {
+        "$ref": "#/entities/SessionOverride"
+      },
+      "description": "Stores edited LinkedIn knowledge-sharing session metadata keyed by session ID."
+    },
+    "/admins/{uid}": {
+      "schema": {
+        "$ref": "#/entities/AdminRegistryEntry"
+      },
+      "description": "Trusted admin UID registry, readable only by the owning authenticated user and non-writable from clients."
+    }
+  }
+}

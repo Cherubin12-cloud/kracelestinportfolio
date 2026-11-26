@@ -1,25 +1,34 @@
 import React, { useState } from 'react';
-import { Mail, Linkedin, MapPin, ArrowUp, RotateCcw, ArrowUpRight } from 'lucide-react';
+import {
+  Mail,
+  Linkedin,
+  MapPin,
+  ArrowUp,
+  ArrowUpRight,
+  Lock,
+} from 'lucide-react';
 import { portfolioData } from '../data/portfolioData';
 import { usePhotoPreview } from '../context/PhotoPreviewContext';
 import { Reveal } from './Reveal';
 
 export const ContactFooter: React.FC = () => {
   const { contact } = portfolioData;
-  const { overrideCount, clearAllOverrides } = usePhotoPreview();
+  const { contactSettings, isAdmin, openAdminPanel } = usePhotoPreview();
   const [notice, setNotice] = useState<string | null>(null);
 
+  const activeEmail = contactSettings?.email || contact.email;
+  const activeLinkedin = contactSettings?.linkedin || contact.linkedin;
+
   const isEmailConfigured =
-    contact.email.includes('@') && !contact.email.includes('[EMAIL');
+    activeEmail.includes('@') && !activeEmail.includes('[EMAIL');
   const isLinkedinConfigured =
-    contact.linkedin.startsWith('http') &&
-    !contact.linkedin.includes('[LINKEDIN');
+    activeLinkedin.startsWith('http') && !activeLinkedin.includes('[LINKEDIN');
 
   const handleEmailClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     if (!isEmailConfigured) {
       e.preventDefault();
       setNotice(
-        'Email address is ready to be updated in src/data/portfolioData.ts under contact.email.'
+        'Email address can be configured permanently via the Admin Panel (bottom right).'
       );
     }
   };
@@ -28,7 +37,7 @@ export const ContactFooter: React.FC = () => {
     if (!isLinkedinConfigured) {
       e.preventDefault();
       setNotice(
-        'LinkedIn profile URL is ready to be updated in src/data/portfolioData.ts under contact.linkedin.'
+        'LinkedIn profile URL can be configured permanently via the Admin Panel (bottom right).'
       );
     }
   };
@@ -67,7 +76,7 @@ export const ContactFooter: React.FC = () => {
                 {/* Primary & Secondary Contact Buttons */}
                 <div className="mt-9 flex flex-wrap items-center gap-4">
                   <a
-                    href={isEmailConfigured ? `mailto:${contact.email}` : '#contact'}
+                    href={isEmailConfigured ? `mailto:${activeEmail}` : '#contact'}
                     onClick={handleEmailClick}
                     className="group inline-flex min-h-[48px] items-center gap-2.5 rounded-2xl bg-[#303E50] px-7 py-3 text-sm font-medium text-white shadow-[0_12px_28px_-14px_rgba(48,62,80,0.55)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#303E50]/92 whitespace-nowrap shrink-0"
                   >
@@ -80,7 +89,7 @@ export const ContactFooter: React.FC = () => {
                   </a>
 
                   <a
-                    href={isLinkedinConfigured ? contact.linkedin : '#contact'}
+                    href={isLinkedinConfigured ? activeLinkedin : '#contact'}
                     target={isLinkedinConfigured ? '_blank' : undefined}
                     rel={isLinkedinConfigured ? 'noopener noreferrer' : undefined}
                     onClick={handleLinkedinClick}
@@ -125,7 +134,10 @@ export const ContactFooter: React.FC = () => {
                       Location
                     </dt>
                     <dd className="mt-1 inline-flex items-center gap-1.5 font-medium text-[#303E50]">
-                      <MapPin className="h-3.5 w-3.5 text-[#5A6B7F]" aria-hidden="true" />
+                      <MapPin
+                        className="h-3.5 w-3.5 text-[#5A6B7F]"
+                        aria-hidden="true"
+                      />
                       {contact.location}
                     </dd>
                   </div>
@@ -135,7 +147,7 @@ export const ContactFooter: React.FC = () => {
                       Email
                     </dt>
                     <dd className="mt-1 break-all font-medium text-[#303E50]">
-                      {contact.email}
+                      {activeEmail}
                     </dd>
                   </div>
 
@@ -144,7 +156,7 @@ export const ContactFooter: React.FC = () => {
                       LinkedIn
                     </dt>
                     <dd className="mt-1 break-all font-medium text-[#303E50]">
-                      {contact.linkedin}
+                      {activeLinkedin}
                     </dd>
                   </div>
                 </dl>
@@ -164,20 +176,18 @@ export const ContactFooter: React.FC = () => {
           </div>
 
           <div className="flex flex-wrap items-center gap-6">
-            {overrideCount > 0 && (
-              <button
-                type="button"
-                onClick={clearAllOverrides}
-                className="inline-flex items-center gap-1.5 font-medium text-[#5A6B7F] transition-colors hover:text-[#303E50]"
-              >
-                <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
-                Reset preview photos ({overrideCount})
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => openAdminPanel()}
+              className="inline-flex min-h-[36px] items-center gap-1.5 font-medium text-[#5A6B7F] transition-colors hover:text-[#303E50]"
+            >
+              <Lock className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>{isAdmin ? 'Espace Admin (Connecté)' : 'Espace Admin'}</span>
+            </button>
 
             <a
               href="#home"
-              className="group inline-flex items-center gap-1.5 font-medium text-[#303E50] transition-colors hover:text-[#5A6B7F]"
+              className="group inline-flex min-h-[36px] items-center gap-1.5 font-medium text-[#303E50] transition-colors hover:text-[#5A6B7F]"
             >
               <span>Back to top</span>
               <ArrowUp

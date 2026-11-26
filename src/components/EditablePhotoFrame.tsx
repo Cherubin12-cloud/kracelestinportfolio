@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { ImagePlus, RotateCcw, Expand } from 'lucide-react';
+import { ImagePlus, Trash2, Expand, Loader2 } from 'lucide-react';
 import { MediaAsset, PaletteTone } from '../types/portfolio';
 import { usePhotoPreview } from '../context/PhotoPreviewContext';
 
@@ -69,33 +69,62 @@ export const EditablePhotoFrame: React.FC<EditablePhotoFrameProps> = ({
   showExpandHint = false,
   onImageClick,
 }) => {
-  const { overrides, setPhotoOverride, clearPhotoOverride } = usePhotoPreview();
+  const {
+    overrides,
+    isAdmin,
+    savePhotoFile,
+    deleteSavedPhoto,
+    openAdminPanel,
+  } = usePhotoPreview();
   const [hasError, setHasError] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const previewSrc = overrides[asset.id] || null;
-  const activeSrc = !hasError ? previewSrc || asset.src : null;
+  const savedSrc = overrides[asset.id] || null;
+  const activeSrc = !hasError ? savedSrc || asset.src : null;
   const art = TONE_ART[asset.tone];
   const isCompact = variant === 'thumbnail';
+  const canEditInline = allowUpload && isAdmin && !isCompact;
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const file = event.target.files?.[0];
-    if (file) {
-      setHasError(false);
-      setPhotoOverride(asset.id, file);
-    }
     event.target.value = '';
+    if (!file || !isAdmin) return;
+
+    setUploading(true);
+    setHasError(false);
+    try {
+      await savePhotoFile(asset.id, file, asset.caption);
+    } catch (error) {
+      console.error('Inline admin photo save failed:', error);
+    } finally {
+      setUploading(false);
+    }
   };
 
   const triggerUpload = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!isAdmin) {
+      openAdminPanel(asset.id);
+      return;
+    }
     inputRef.current?.click();
   };
 
-  const handleReset = (e: React.MouseEvent) => {
+  const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    setHasError(false);
-    clearPhotoOverride(asset.id);
+    if (!isAdmin) return;
+    setUploading(true);
+    try {
+      await deleteSavedPhoto(asset.id);
+      setHasError(false);
+    } catch (error) {
+      console.error('Inline admin photo delete failed:', error);
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (
@@ -105,15 +134,24 @@ export const EditablePhotoFrame: React.FC<EditablePhotoFrameProps> = ({
       }`}
       onClick={onImageClick}
     >
-      {allowUpload && (
+      {canEditInline && (
         <input
           ref={inputRef}
           type="file"
           accept="image/*"
-          onChange={handleFileChange}
+          onChange={(e) => void handleFileChange(e)}
           className="sr-only"
-          aria-label={`Preview local photograph for ${asset.slotLabel}`}
+          aria-label={`Upload permanent photograph for ${asset.slotLabel}`}
         />
+      )}
+
+      {uploading && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/75 backdrop-blur-xs">
+          <div className="inline-flex items-center gap-2 rounded-xl bg-[#303E50] px-4 py-2 text-xs font-medium text-white shadow-sm">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+            <span>Enregistrement...</span>
+          </div>
+        </div>
       )}
 
       {activeSrc ? (
@@ -127,12 +165,11 @@ export const EditablePhotoFrame: React.FC<EditablePhotoFrameProps> = ({
             className="h-full w-full object-cover transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover/frame:scale-[1.035]"
           />
 
-          {/* Subtle vignette at bottom on hover for control legibility */}
-          {!isCompact && (allowUpload || showExpandHint) && (
+          {!isCompact && (canEditInline || showExpandHint) && (
             <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#303E50]/45 via-[#303E50]/12 to-transparent opacity-0 transition-opacity duration-200 group-hover/frame:opacity-100" />
           )}
 
-          {!isCompact && (allowUpload || showExpandHint) && (
+          {!isCompact && (canEditInline || showExpandHint) && (
             <div className="absolute right-3 bottom-3 left-3 flex items-center justify-between gap-2 opacity-0 transition-opacity duration-200 group-hover/frame:opacity-100 focus-within:opacity-100">
               {showExpandHint ? (
                 <span className="inline-flex items-center gap-1.5 rounded-xl bg-white/92 px-3 py-1.5 text-[11px] font-medium text-[#303E50] shadow-xs backdrop-blur-sm">
@@ -143,7 +180,7 @@ export const EditablePhotoFrame: React.FC<EditablePhotoFrameProps> = ({
                 <span />
               )}
 
-              {allowUpload && (
+              {canEditInline && (
                 <div className="flex items-center gap-1.5">
                   <button
                     type="button"
@@ -151,17 +188,17 @@ export const EditablePhotoFrame: React.FC<EditablePhotoFrameProps> = ({
                     className="inline-flex items-center gap-1.5 rounded-xl bg-white/95 px-3 py-1.5 text-xs font-medium text-[#303E50] shadow-xs backdrop-blur-sm transition-colors hover:bg-white whitespace-nowrap shrink-0"
                   >
                     <ImagePlus className="h-3.5 w-3.5" aria-hidden="true" />
-                    Change photo
+                    Remplacer
                   </button>
-                  {previewSrc && (
+                  {savedSrc && (
                     <button
                       type="button"
-                      onClick={handleReset}
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-[#303E50]/90 text-white shadow-xs backdrop-blur-sm transition-colors hover:bg-[#303E50]"
-                      aria-label="Reset preview photo"
-                      title="Reset to placeholder"
+                      onClick={(e) => void handleDelete(e)}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-[#303E50]/90 text-white shadow-xs backdrop-blur-sm transition-colors hover:bg-red-700"
+                      aria-label="Supprimer la photo enregistrée"
+                      title="Supprimer la photo"
                     >
-                      <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+                      <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                     </button>
                   )}
                 </div>
@@ -185,7 +222,6 @@ export const EditablePhotoFrame: React.FC<EditablePhotoFrameProps> = ({
           >
             {variant === 'portrait' ? (
               <>
-                {/* Soft tonal overlapping editorial forms */}
                 <circle
                   cx="312"
                   cy="112"
@@ -205,14 +241,12 @@ export const EditablePhotoFrame: React.FC<EditablePhotoFrameProps> = ({
                   fill={art.shapeSecondary}
                   fillOpacity="0.42"
                 />
-                {/* Arch outline & refined viewfinder registration marks */}
                 <path
                   d="M84 468V224C84 159.935 135.935 108 200 108C264.065 108 316 159.935 316 224V468"
                   stroke={art.ink}
                   strokeOpacity="0.14"
                   strokeWidth="1.2"
                 />
-                {/* Minimal editorial silhouette study lines */}
                 <circle
                   cx="200"
                   cy="214"
@@ -228,7 +262,6 @@ export const EditablePhotoFrame: React.FC<EditablePhotoFrameProps> = ({
                   strokeWidth="1.35"
                   strokeLinecap="round"
                 />
-                {/* Fine optical crosshair accents */}
                 <path
                   d="M28 52V28H52M348 28H372V52M28 448V472H52M348 472H372V448"
                   stroke={art.ink}
@@ -265,7 +298,6 @@ export const EditablePhotoFrame: React.FC<EditablePhotoFrameProps> = ({
                   strokeOpacity="0.11"
                   strokeWidth="1.15"
                 />
-                {/* Subtle editorial horizon & geometric composition */}
                 <line
                   x1="44"
                   y1="224"
@@ -291,7 +323,6 @@ export const EditablePhotoFrame: React.FC<EditablePhotoFrameProps> = ({
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 />
-                {/* Viewfinder corner registration marks */}
                 <path
                   d="M24 44V24H44M436 24H456V44M24 296V316H44M436 316H456V296"
                   stroke={art.ink}
@@ -305,7 +336,6 @@ export const EditablePhotoFrame: React.FC<EditablePhotoFrameProps> = ({
 
           {!isCompact && (
             <>
-              {/* Quiet top metadata */}
               <div className="relative z-10 flex items-center justify-between gap-2 text-[11px] font-medium text-[#303E50]/75">
                 <span className="tracking-wide">{asset.slotLabel}</span>
                 <span className="tabular-nums text-[#303E50]/50">
@@ -313,20 +343,19 @@ export const EditablePhotoFrame: React.FC<EditablePhotoFrameProps> = ({
                 </span>
               </div>
 
-              {/* Bottom editorial caption & preview action */}
               <div className="relative z-10 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <p className="max-w-[27ch] text-xs leading-relaxed text-[#303E50]/75">
                   {asset.suggestedPhoto}
                 </p>
 
-                {allowUpload && (
+                {canEditInline && (
                   <button
                     type="button"
                     onClick={triggerUpload}
                     className="inline-flex min-h-[36px] w-fit items-center gap-1.5 rounded-xl border border-[#303E50]/10 bg-white/92 px-3.5 py-1.5 text-xs font-medium text-[#303E50] shadow-xs backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-white hover:shadow-sm whitespace-nowrap shrink-0"
                   >
                     <ImagePlus className="h-3.5 w-3.5" aria-hidden="true" />
-                    Preview photo
+                    Ajouter photo
                   </button>
                 )}
               </div>

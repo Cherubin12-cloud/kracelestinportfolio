@@ -4,24 +4,42 @@ import { portfolioData } from '../data/portfolioData';
 import { SessionCategory, SessionItem } from '../types/portfolio';
 import { EditablePhotoFrame } from './EditablePhotoFrame';
 import { Reveal } from './Reveal';
+import { usePhotoPreview } from '../context/PhotoPreviewContext';
 
 export const SessionsSection: React.FC = () => {
   const { sessions } = portfolioData;
+  const { sessionOverrides } = usePhotoPreview();
   const [selectedCategory, setSelectedCategory] = useState<'All' | SessionCategory>('All');
   const [linkNoticeId, setLinkNoticeId] = useState<string | null>(null);
 
+  const mergedSessions = useMemo(() => {
+    return sessions.items.map((item) => {
+      const saved = sessionOverrides[item.id];
+      if (!saved) return item;
+      return {
+        ...item,
+        title: saved.title || item.title,
+        topic: saved.topic || item.topic,
+        category: saved.category || item.category,
+        date: saved.date || item.date,
+        role: saved.role || item.role,
+        linkedinUrl: saved.linkedinUrl || item.linkedinUrl,
+      };
+    });
+  }, [sessions.items, sessionOverrides]);
+
   const categoryCounts = useMemo(() => {
-    const counts: Record<string, number> = { All: sessions.items.length };
+    const counts: Record<string, number> = { All: mergedSessions.length };
     for (const cat of sessions.categories) {
-      counts[cat] = sessions.items.filter((item) => item.category === cat).length;
+      counts[cat] = mergedSessions.filter((item) => item.category === cat).length;
     }
     return counts;
-  }, [sessions.items, sessions.categories]);
+  }, [mergedSessions, sessions.categories]);
 
   const filteredSessions = useMemo(() => {
-    if (selectedCategory === 'All') return sessions.items;
-    return sessions.items.filter((item) => item.category === selectedCategory);
-  }, [sessions.items, selectedCategory]);
+    if (selectedCategory === 'All') return mergedSessions;
+    return mergedSessions.filter((item) => item.category === selectedCategory);
+  }, [mergedSessions, selectedCategory]);
 
   const isUrlConfigured = (url: string) =>
     url.startsWith('http') && !url.includes('[LINKEDIN');
@@ -212,11 +230,8 @@ export const SessionsSection: React.FC = () => {
                         role="status"
                         className="mt-3 rounded-xl border border-[#303E50]/[0.08] bg-[#DCEAE5]/55 px-3.5 py-2.5 text-[11.5px] leading-relaxed text-[#303E50]"
                       >
-                        Add the authentic session title, date, topic, and LinkedIn link in{' '}
-                        <code className="font-mono text-[11px]">
-                          src/data/portfolioData.ts
-                        </code>{' '}
-                        under <code className="font-mono text-[11px]">sessions.items</code>.
+                        Configure this session&apos;s authentic title, date, topic, and LinkedIn link directly from the{' '}
+                        <span className="font-semibold">Espace Admin</span> in the footer.
                       </div>
                     )}
                   </div>
